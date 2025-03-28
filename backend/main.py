@@ -1,17 +1,14 @@
 # main.py
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import google.generativeai as genai
-from mashup_logic import build_prompt, build_dialogue_prompt, build_scene_prompt
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
+from mashup_logic import build_prompt, build_dialogue_prompt, build_scene_prompt, build_quick_mashup_prompt
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
+# CORS setup
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,30 +17,49 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel("gemini-1.5-pro-latest")
+# Gemini API setup
 
+from dotenv import load_dotenv
+import os
+import google.generativeai as genai
+
+# Load environment variables from .env
+load_dotenv()
+
+# Check if the key is loaded correctly
+api_key = os.getenv("GEMINI_API_KEY")
+print("key: ", api_key)  # Optional for debugging, remove in production
+
+# Pass the actual API key
+genai.configure(api_key=api_key)
+
+# Create the model instance
+model = genai.GenerativeModel('gemini-1.5-pro-latest')
+
+
+# Models
 class MashupRequest(BaseModel):
-    movie1: str
-    movie2: str
     genre: str
-    extra_context: str = ""
+    character1: str
+    character2: str
 
 class DialogueRequest(BaseModel):
-    movie1: str
-    movie2: str
     genre: str
-    scene_desc: str
+    character1: str
+    character2: str
 
 class SceneRequest(BaseModel):
-    movie1: str
-    movie2: str
     genre: str
-    scene_idea: str
+    character1: str
+    character2: str
 
-@app.post("/generate")
-async def generate_mashup(req: MashupRequest):
-    prompt = build_prompt(req.movie1, req.movie2, req.genre, req.extra_context)
+class QuickMashupRequest(BaseModel):
+    user_input: str
+
+# Routes
+@app.post("/mashup")
+async def mashup(req: MashupRequest):
+    prompt = build_prompt(req.genre, req.character1, req.character2)
     try:
         response = model.generate_content(prompt)
         result_text = response.candidates[0].content.parts[0].text
@@ -52,8 +68,8 @@ async def generate_mashup(req: MashupRequest):
         return {"error": f"Gemini API call failed: {str(e)}"}
 
 @app.post("/dialogue")
-async def generate_dialogue(req: DialogueRequest):
-    prompt = build_dialogue_prompt(req.movie1, req.movie2, req.genre, req.scene_desc)
+async def dialogue(req: DialogueRequest):
+    prompt = build_dialogue_prompt(req.genre, req.character1, req.character2)
     try:
         response = model.generate_content(prompt)
         result_text = response.candidates[0].content.parts[0].text
@@ -62,8 +78,18 @@ async def generate_dialogue(req: DialogueRequest):
         return {"error": f"Gemini API call failed: {str(e)}"}
 
 @app.post("/scene")
-async def generate_scene(req: SceneRequest):
-    prompt = build_scene_prompt(req.movie1, req.movie2, req.genre, req.scene_idea)
+async def scene(req: SceneRequest):
+    prompt = build_scene_prompt(req.genre, req.character1, req.character2)
+    try:
+        response = model.generate_content(prompt)
+        result_text = response.candidates[0].content.parts[0].text
+        return {"output": result_text}
+    except Exception as e:
+        return {"error": f"Gemini API call failed: {str(e)}"}
+
+@app.post("/quick_mashup")
+async def quick_mashup(req: QuickMashupRequest):
+    prompt = build_quick_mashup_prompt(req.user_input)
     try:
         response = model.generate_content(prompt)
         result_text = response.candidates[0].content.parts[0].text

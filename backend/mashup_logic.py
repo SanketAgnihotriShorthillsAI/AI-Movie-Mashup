@@ -29,3 +29,6 @@ def build_dialogue_prompt(movie1: str, movie2: str, genre: str, scene_desc: str)
 
 def build_scene_prompt(movie1: str, movie2: str, genre: str, scene_idea: str):
     return f"Write a detailed movie scene script combining '{movie1}' and '{movie2}' in the genre '{genre}'. Scene idea: {scene_idea}"
+
+def build_quick_mashup_prompt(user_input: str):
+    return f"Generate a short creative crossover scenario based on: {user_input}"
